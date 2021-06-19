@@ -7,7 +7,8 @@ use Illuminate\Queue\SerializesModels;
 
 class ScrapeRequest
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * @var string

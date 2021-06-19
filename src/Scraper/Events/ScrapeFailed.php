@@ -7,7 +7,8 @@ use Illuminate\Queue\SerializesModels;
 
 class ScrapeFailed
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * @var ScrapeRequest

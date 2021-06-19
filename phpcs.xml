@@ -16,7 +16,7 @@
         <type>error</type>
     </rule>
 
-    <rule ref="PSR2"/>
+    <rule ref="PSR12"/>
 
     <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
     <rule ref="Generic.Strings.UnnecessaryStringConcat"/>
@@ -24,6 +24,4 @@
     <rule ref="Generic.NamingConventions.UpperCaseConstantName"/>
     <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
     <rule ref="Generic.WhiteSpace.ScopeIndent"/>
-
-    <rule ref="PSR12.Files.OpenTag"/>
 </ruleset>
