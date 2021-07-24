@@ -10,27 +10,14 @@ class ScrapeRequest
     use Dispatchable;
     use SerializesModels;
 
-    /**
-     * @var string
-     */
-    public $url;
+    public string $url;
 
-    /**
-     * @var string
-     */
-    public $type;
+    public string $type;
 
-    /**
-     * @var array
-     */
-    public $context;
+    public array $context;
 
     /**
      * Create a new event instance.
-     *
-     * @param string $url
-     * @param string $type
-     * @param array  $context
      */
     public function __construct(string $url, string $type, array $context = [])
     {
@@ -45,11 +32,9 @@ class ScrapeRequest
      * Only if you are using Horizon
      *
      * @see https://laravel.com/docs/5.8/horizon#tags
-     *
-     * @return array
      */
-    public function tags()
+    public function tags(): array
     {
-        return ["request_type:{$this->type}"];
+        return ["request_type:$this->type"];
     }
 }

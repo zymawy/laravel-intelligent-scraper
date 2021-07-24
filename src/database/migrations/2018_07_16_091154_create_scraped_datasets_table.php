@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection ALL */
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -12,11 +12,11 @@ class CreateScrapedDatasetsTable extends Migration
      */
     public function up()
     {
-        Schema::create('scraped_datasets', function (Blueprint $table) {
+        Schema::create('scraped_datasets', function (Blueprint $table): void {
             $table->string('url', 1024)->primary();
             $table->string('type');
             $table->string('variant', 40)->index()->nullable();
-            $table->json('data');
+            $table->json('fields');
             $table->timestamps();
         });
     }

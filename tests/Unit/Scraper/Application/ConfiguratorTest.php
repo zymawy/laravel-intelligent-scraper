@@ -2,56 +2,45 @@
 
 namespace Softonic\LaravelIntelligentScraper\Scraper\Application;
 
+use DOMElement;
 use Goutte\Client;
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Log;
-use Mockery\Mock;
+use Mockery;
+use Mockery\LegacyMockInterface;
 use Softonic\LaravelIntelligentScraper\Scraper\Events\ConfigurationScraped;
 use Softonic\LaravelIntelligentScraper\Scraper\Exceptions\ConfigurationException;
 use Softonic\LaravelIntelligentScraper\Scraper\Models\Configuration as ConfigurationModel;
 use Softonic\LaravelIntelligentScraper\Scraper\Models\ScrapedDataset;
 use Softonic\LaravelIntelligentScraper\Scraper\Repositories\Configuration;
+use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
+use UnexpectedValueException;
 
 class ConfiguratorTest extends TestCase
 {
     use DatabaseMigrations;
 
-    /**
-     * @var Mock | Client
-     */
-    private $client;
+    private LegacyMockInterface $client;
 
-    /**
-     * @var Mock | XpathBuilder
-     */
-    private $xpathBuilder;
+    private LegacyMockInterface $xpathBuilder;
 
-    /**
-     * @var Mock | Configuration
-     */
-    private $configuration;
+    private LegacyMockInterface $configuration;
 
-    /**
-     * @var Mock | VariantGenerator
-     */
-    private $variantGenerator;
+    private LegacyMockInterface $variantGenerator;
 
-    /**
-     * @var Mock | Configurator
-     */
-    private $configurator;
+    private Configurator $configurator;
 
     public function setUp(): void
     {
         parent::setUp();
 
-        $this->client           = \Mockery::mock(Client::class);
-        $this->xpathBuilder     = \Mockery::mock(XpathBuilder::class);
-        $this->configuration    = \Mockery::mock(Configuration::class);
-        $this->variantGenerator = \Mockery::mock(VariantGenerator::class);
+        $this->client           = Mockery::mock(Client::class);
+        $this->xpathBuilder     = Mockery::mock(XpathBuilder::class);
+        $this->configuration    = Mockery::mock(Configuration::class);
+        $this->variantGenerator = Mockery::mock(VariantGenerator::class);
 
         Log::spy();
 
@@ -66,20 +55,28 @@ class ConfiguratorTest extends TestCase
     /**
      * @test
      */
-    public function whenTryToFindNewXpathButUrlFromDatasetIsNotFoundThrowAnExceptionAndRemoveIt()
+    public function whenTryToFindNewXpathButUrlFromDatasetIsNotFoundThrowAnExceptionAndRemoveIt(): void
     {
-        $posts = [
+        $posts = collect([
             new ScrapedDataset([
-                'url'  => 'https://test.c/123456789012',
-                'type' => 'post',
-                'data' => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+                'url'    => ':scrape-url:',
+                'type'   => ':type:',
+                'fields' => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
-        $requestException = \Mockery::mock(RequestException::class);
+        $requestException = Mockery::mock(RequestException::class);
         $requestException->shouldReceive('getResponse->getStatusCode')
             ->once()
             ->andReturn(404);
@@ -87,103 +84,120 @@ class ConfiguratorTest extends TestCase
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url:'
             )
             ->andThrows($requestException);
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect());
 
         try {
             $this->configurator->configureFromDataset($posts);
         } catch (ConfigurationException $e) {
-            $this->assertEquals('Field(s) "title,author" not found.', $e->getMessage());
-            $this->assertDatabaseMissing('scraped_datasets', ['url' => 'https://test.c/123456789012']);
+            self::assertEquals('Field(s) ":field-1:,:field-2:" not found.', $e->getMessage());
+            $this->assertDatabaseMissing('scraped_datasets', ['url' => ':scrape-url:']);
         }
     }
 
     /**
      * @test
      */
-    public function whenTryToFindNewXpathButUrlFromDatasetIsNotAvailableThrowAnExceptionAndRemoveIt()
+    public function whenTryToFindNewXpathButUrlFromDatasetIsNotAvailableThrowAnExceptionAndRemoveIt(): void
     {
-        $posts = [
+        $posts = collect([
             new ScrapedDataset([
-                'url'  => 'https://test.c/123456789012',
-                'type' => 'post',
-                'data' => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+                'url'    => ':scrape-url:',
+                'type'   => ':type:',
+                'fields' => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
-        $connectException = \Mockery::mock(ConnectException::class);
+        $connectException = Mockery::mock(ConnectException::class);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url:'
             )
             ->andThrows($connectException);
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect());
 
         try {
             $this->configurator->configureFromDataset($posts);
         } catch (ConfigurationException $e) {
-            $this->assertEquals('Field(s) "title,author" not found.', $e->getMessage());
-            $this->assertDatabaseMissing('scraped_datasets', ['url' => 'https://test.c/123456789012']);
+            self::assertEquals('Field(s) ":field-1:,:field-2:" not found.', $e->getMessage());
+            $this->assertDatabaseMissing('scraped_datasets', ['url' => ':scrape-url:']);
         }
     }
 
     /**
      * @test
      */
-    public function whenTryToFindNewXpathButNotFoundItShouldLogItAndResetVariant()
+    public function whenTryToFindNewXpathButNotFoundItShouldLogItAndResetVariant(): void
     {
-        $posts = [
-            ScrapedDataset::create([
-                'url'     => 'https://test.c/123456789012',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+        $posts = collect([
+            new ScrapedDataset([
+                'url'     => ':scrape-url:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
+        $crawler = Mockery::mock(Crawler::class);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
 
-        $rootElement = new \DOMElement('test');
-        $this->client->shouldReceive('getNode')
+        $rootElement = new DOMElement('test');
+        $crawler->shouldReceive('getUri')
+            ->andReturn(':scrape-url:');
+        $crawler->shouldReceive('getNode')
             ->with(0)
             ->andReturn($rootElement);
-        $this->client->shouldReceive('getUri')
-            ->andReturn('https://test.c/123456789012');
 
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My Title')
-            ->andReturn('//*[|id="title"]');
+            ->with($rootElement, ':value-1:')
+            ->andReturn(':xpath-1:');
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My author')
-            ->andThrow(\UnexpectedValueException::class);
+            ->with($rootElement, ':value-2:')
+            ->andThrow(UnexpectedValueException::class);
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect());
 
         $this->variantGenerator->shouldReceive('addConfig')
@@ -194,67 +208,136 @@ class ConfiguratorTest extends TestCase
             ->andReturn('');
 
         Log::shouldReceive('warning')
-            ->with("Field 'author' with value 'My author' not found for 'https://test.c/123456789012'.");
+            ->with("Field ':field-2:' with value ':value-2:' not found for ':scrape-url:'.");
 
         $this->expectsEvents(ConfigurationScraped::class);
 
         try {
             $this->configurator->configureFromDataset($posts);
         } catch (ConfigurationException $e) {
-            $this->assertEquals('Field(s) "author" not found.', $e->getMessage());
+            self::assertEquals('Field(s) ":field-1:" not found.', $e->getMessage());
+        }
+    }
+
+
+    /**
+     * @test
+     */
+    public function whenTryToFindNewXpathButNotFieldWereFoundInTheDatasetItShouldLogItDoNothing(): void
+    {
+        $posts = collect([
+            new ScrapedDataset([
+                'url'     => ':scrape-url:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => false,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => false,
+                    ],
+                ],
+            ]),
+        ]);
+
+        $crawler = Mockery::mock(Crawler::class);
+        $this->client->shouldReceive('request')
+            ->once()
+            ->with(
+                'GET',
+                ':scrape-url:'
+            )
+            ->andReturn($crawler);
+
+        $rootElement = new DOMElement('test');
+        $crawler->shouldReceive('getUri')
+            ->andReturn(':scrape-url:');
+        $crawler->shouldReceive('getNode')
+            ->with(0)
+            ->andReturn($rootElement);
+
+        $this->xpathBuilder->shouldNotReceive('find');
+
+        $this->configuration->shouldReceive('findByType')
+            ->once()
+            ->with(':type:')
+            ->andReturn(collect());
+
+        $this->variantGenerator->shouldNotReceive('addConfig');
+        $this->variantGenerator->shouldReceive('getId')
+            ->andReturn('');
+
+        try {
+            $this->configurator->configureFromDataset($posts);
+        } catch (ConfigurationException $e) {
+            self::assertEquals('Field(s) ":field-1:,:field-2:" not found.', $e->getMessage());
         }
     }
 
     /**
      * @test
      */
-    public function whenUseSomeOldXpathButNotFoundNewsItShouldLogItAndResetVariant()
+    public function whenUseSomeOldXpathButNotFoundNewsItShouldLogItAndResetVariant(): void
     {
-        $posts = [
-            ScrapedDataset::create([
-                'url'     => 'https://test.c/123456789012',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+        $posts = collect([
+            new ScrapedDataset([
+                'url'     => ':scrape-url:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
+        $crawler = Mockery::mock(Crawler::class);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
 
-        $rootElement = new \DOMElement('test');
-        $this->client->shouldReceive('getNode')
+        $rootElement = new DOMElement('test');
+        $crawler->shouldReceive('getUri')
+            ->andReturn(':scrape-url:');
+        $crawler->shouldReceive('getNode')
             ->with(0)
             ->andReturn($rootElement);
-        $this->client->shouldReceive('filterXpath->count')
+        $crawler->shouldReceive('filterXpath->count')
             ->once()
             ->andReturn(1);
-        $this->client->shouldReceive('getUri')
-            ->andReturn('https://test.c/123456789012');
 
         $this->xpathBuilder->shouldReceive('find')
             ->never()
-            ->with($rootElement, 'My Title');
+            ->with($rootElement, ':value-1:');
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My author')
-            ->andThrow(\UnexpectedValueException::class);
+            ->with($rootElement, ':value-2:')
+            ->andThrow(UnexpectedValueException::class);
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect([
                 ConfigurationModel::create([
-                    'name' => 'title',
-                    'type' => 'post',
-                    'xpaths' => ['//*[|id="title"]'],
+                    'name'   => ':field-1:',
+                    'type'   => ':type:',
+                    'xpaths' => [':xpath-1:'],
                 ]),
             ]));
 
@@ -266,75 +349,92 @@ class ConfiguratorTest extends TestCase
             ->andReturn('');
 
         Log::shouldReceive('warning')
-            ->with("Field 'author' with value 'My author' not found for 'https://test.c/123456789012'.");
+            ->with("Field ':field-2:' with value ':value-2:' not found for ':scrape-url:'.");
 
         $this->expectsEvents(ConfigurationScraped::class);
 
         try {
             $this->configurator->configureFromDataset($posts);
         } catch (ConfigurationException $e) {
-            $this->assertEquals('Field(s) "author" not found.', $e->getMessage());
+            self::assertEquals('Field(s) ":field-1:" not found.', $e->getMessage());
         }
     }
 
     /**
      * @test
      */
-    public function whenTryToFindXpathInMultiplepostsAndNotFoundInAnyItShouldThrowAnExceptionAndLogItAndResetVariant()
+    public function whenTryToFindXpathInMultiplePostsAndNotFoundInAnyItShouldThrowAnExceptionAndLogItAndResetVariant(): void
     {
-        $posts = [
-            ScrapedDataset::make([
-                'url'     => 'https://test.c/123456789012',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+        $posts = collect([
+            new ScrapedDataset([
+                'url'     => ':scrape-url-1:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
             ScrapedDataset::make([
-                'url'     => 'https://test.c/123456789022',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+                'url'     => ':scrape-url-2:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-3:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-4:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
+        $crawler = Mockery::mock(Crawler::class);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url-1:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789022'
+                ':scrape-url-2:'
             )
-            ->andReturnSelf();
-        $this->client->shouldReceive('getUri')
-            ->andReturn('https://test.c/123456789012');
+            ->andReturn($crawler);
 
-        $rootElement = new \DOMElement('test');
-        $this->client->shouldReceive('getNode')
+        $rootElement = new DOMElement('test');
+        $crawler->shouldReceive('getUri')
+            ->andReturn(':scrape-url-1:');
+        $crawler->shouldReceive('getNode')
             ->with(0)
             ->andReturn($rootElement);
 
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My Title')
-            ->andThrow(\UnexpectedValueException::class);
+            ->with($rootElement, ':value-1:')
+            ->andThrow(UnexpectedValueException::class);
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My author')
-            ->andThrow(\UnexpectedValueException::class);
+            ->with($rootElement, ':value-2:')
+            ->andThrow(UnexpectedValueException::class);
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect());
 
         $this->variantGenerator->shouldReceive('addConfig')
@@ -345,98 +445,123 @@ class ConfiguratorTest extends TestCase
             ->andReturn('');
 
         Log::shouldReceive('warning')
-            ->with("Field 'title' with value 'My Title' not found for 'https://test.c/123456789012'.");
+            ->with("Field ':field-1:' with value ':value-1:' not found for ':scrape-url-1:'.");
 
         Log::shouldReceive('warning')
-            ->with("Field 'author' with value 'My author' not found for 'https://test.c/123456789012'.");
+            ->with("Field ':field-2:' with value ':value-2:' not found for ':scrape-url-1:'.");
 
         $this->expectsEvents(ConfigurationScraped::class);
 
         try {
             $this->configurator->configureFromDataset($posts);
         } catch (ConfigurationException $e) {
-            $this->assertEquals('Field(s) "title,author" not found.', $e->getMessage());
+            self::assertEquals('Field(s) ":field-1:,:field-2:" not found.', $e->getMessage());
         }
     }
 
     /**
      * @test
      */
-    public function whenDiscoverDifferentXpathItShouldGetAllOfThemAndUpdateTheVariants()
+    public function whenDiscoverDifferentXpathItShouldGetAllOfThemAndUpdateTheVariants(): void
     {
-        $posts = [
-            ScrapedDataset::make([
-                'url'     => 'https://test.c/123456789012',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+        $posts = collect([
+            new ScrapedDataset([
+                'url'     => ':scrape-url-1:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
             ScrapedDataset::make([
-                'url'     => 'https://test.c/123456789022',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title',
-                    'author' => 'My author',
+                'url'     => ':scrape-url-2:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-1:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-2:',
+                        'found' => true,
+                    ],
                 ],
             ]),
             ScrapedDataset::make([
-                'url'     => 'https://test.c/123456789033',
-                'type'    => 'post',
-                'variant' => 'f45a8de53eaeea347a83ebaafaf29f16a1dd97e0',
-                'data'    => [
-                    'title'  => 'My Title2',
-                    'author' => 'My author2',
+                'url'     => ':scrape-url-3:',
+                'type'    => ':type:',
+                'variant' => ':variant:',
+                'fields'  => [
+                    [
+                        'key'   => ':field-1:',
+                        'value' => ':value-3:',
+                        'found' => true,
+                    ],
+                    [
+                        'key'   => ':field-2:',
+                        'value' => ':value-4:',
+                        'found' => true,
+                    ],
                 ],
             ]),
-        ];
+        ]);
 
+        $crawler = Mockery::mock(Crawler::class);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789012'
+                ':scrape-url-1:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789022'
+                ':scrape-url-2:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
         $this->client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'https://test.c/123456789033'
+                ':scrape-url-3:'
             )
-            ->andReturnSelf();
+            ->andReturn($crawler);
 
         $rootElement = new \DOMElement('test');
-        $this->client->shouldReceive('getNode')
+        $crawler->shouldReceive('getNode')
             ->with(0)
             ->andReturn($rootElement);
 
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My Title')
-            ->andReturn('//*[|id="title"]');
+            ->with($rootElement, ':value-1:')
+            ->andReturn(':xpath-1:');
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My author')
-            ->andReturn('//*[|id="author"]');
+            ->with($rootElement, ':value-2:')
+            ->andReturn(':xpath-2:');
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My Title2')
-            ->andReturn('//*[|id="title2"]');
+            ->with($rootElement, ':value-3:')
+            ->andReturn(':xpath-3:');
         $this->xpathBuilder->shouldReceive('find')
-            ->with($rootElement, 'My author2')
-            ->andReturn('//*[|id="author2"]');
+            ->with($rootElement, ':value-4:')
+            ->andReturn(':xpath-4:');
 
         $this->configuration->shouldReceive('findByType')
             ->once()
-            ->with('post')
+            ->with(':type:')
             ->andReturn(collect());
 
         $this->variantGenerator->shouldReceive('addConfig')
@@ -450,24 +575,24 @@ class ConfiguratorTest extends TestCase
 
         $configurations = $this->configurator->configureFromDataset($posts);
 
-        $this->assertInstanceOf(ConfigurationModel::class, $configurations[0]);
-        $this->assertEquals('title', $configurations[0]['name']);
-        $this->assertEquals('post', $configurations[0]['type']);
-        $this->assertEquals(
+        self::assertInstanceOf(ConfigurationModel::class, $configurations[0]);
+        self::assertEquals(':field-1:', $configurations[0]['name']);
+        self::assertEquals(':type:', $configurations[0]['type']);
+        self::assertEquals(
             [
-                '//*[|id="title"]',
-                '//*[|id="title2"]',
+                ':xpath-1:',
+                ':xpath-3:',
             ],
             array_values($configurations[0]['xpaths'])
         );
 
-        $this->assertInstanceOf(ConfigurationModel::class, $configurations[1]);
-        $this->assertEquals('author', $configurations[1]['name']);
-        $this->assertEquals('post', $configurations[1]['type']);
-        $this->assertEquals(
+        self::assertInstanceOf(ConfigurationModel::class, $configurations[1]);
+        self::assertEquals(':field-2:', $configurations[1]['name']);
+        self::assertEquals(':type:', $configurations[1]['type']);
+        self::assertEquals(
             [
-                '//*[|id="author"]',
-                '//*[|id="author2"]',
+                ':xpath-2:',
+                ':xpath-4:',
             ],
             array_values($configurations[1]['xpaths'])
         );

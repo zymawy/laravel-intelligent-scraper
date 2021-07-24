@@ -2,6 +2,8 @@
 
 namespace Softonic\LaravelIntelligentScraper\Scraper\Listeners;
 
+use Illuminate\Support\Facades\App;
+use Softonic\LaravelIntelligentScraper\Scraper\Entities\ScrapedData;
 use Softonic\LaravelIntelligentScraper\Scraper\Events\Scraped;
 use Softonic\LaravelIntelligentScraper\Scraper\Events\ScrapeRequest;
 use Tests\TestCase;
@@ -11,10 +13,10 @@ class ScrapedListenerTest extends TestCase
     /**
      * @test
      */
-    public function whenReceiveAnUnknownScrapedTypeItShouldDoNothing()
+    public function whenReceiveAnUnknownScrapedTypeItShouldDoNothing(): void
     {
         $listener = \Mockery::mock(ScrapedListener::class);
-        \App::instance(get_class($listener), $listener);
+        App::instance(get_class($listener), $listener);
 
         $scrapedListener = new ScrapedListener([
             'known_type' => get_class($listener),
@@ -22,11 +24,13 @@ class ScrapedListenerTest extends TestCase
 
         $scrapedEvent = new Scraped(
             new ScrapeRequest(
-                'http://uri',
-                'unknown_type'
+                ':scrape-url:',
+                ':type:'
             ),
-            [],
-            1
+            new ScrapedData(
+                null,
+                []
+            )
         );
 
         $listener->shouldNotReceive('handle');
@@ -37,22 +41,24 @@ class ScrapedListenerTest extends TestCase
     /**
      * @test
      */
-    public function whenReceiveAKnownScrapedTypeItShouldHandleTheEventWithTheSpecificDependency()
+    public function whenReceiveAKnownScrapedTypeItShouldHandleTheEventWithTheSpecificDependency(): void
     {
         $listener = \Mockery::mock(ScrapedListener::class);
-        \App::instance(get_class($listener), $listener);
+        App::instance(get_class($listener), $listener);
 
         $scrapedListener = new ScrapedListener([
-            'known_type' => get_class($listener),
+            ':type:' => get_class($listener),
         ]);
 
         $scrapedEvent = new Scraped(
             new ScrapeRequest(
-                'http://uri',
-                'known_type'
+                ':scrape-url:',
+                ':type:'
             ),
-            [],
-            1
+            new ScrapedData(
+                null,
+                []
+            )
         );
 
         $listener->shouldReceive('handle')

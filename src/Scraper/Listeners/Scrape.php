@@ -14,20 +14,11 @@ use Softonic\LaravelIntelligentScraper\Scraper\Repositories\Configuration;
 
 class Scrape implements ShouldQueue
 {
-    /**
-     * @var Configuration
-     */
-    private $configuration;
+    private Configuration $configuration;
 
-    /**
-     * @var LoggerInterface
-     */
-    private $logger;
+    private LoggerInterface $logger;
 
-    /**
-     * @var XpathFinder
-     */
-    private $xpathFinder;
+    private XpathFinder $xpathFinder;
 
     public function __construct(
         Configuration $configuration,
@@ -39,7 +30,7 @@ class Scrape implements ShouldQueue
         $this->logger        = $logger;
     }
 
-    public function handle(ScrapeRequest $scrapeRequest)
+    public function handle(ScrapeRequest $scrapeRequest): void
     {
         try {
             $config = $this->loadConfiguration($scrapeRequest);
@@ -69,7 +60,7 @@ class Scrape implements ShouldQueue
     {
         $this->logger->info("Extracting data from $scrapeRequest->url for type '$scrapeRequest->type'");
 
-        ['data' => $data, 'variant' => $variant] = $this->xpathFinder->extract($scrapeRequest->url, $config);
-        event(new Scraped($scrapeRequest, $data, $variant));
+        $scrapedData = $this->xpathFinder->extract($scrapeRequest->url, $config);
+        event(new Scraped($scrapeRequest, $scrapedData));
     }
 }

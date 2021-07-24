@@ -9,9 +9,9 @@ use Softonic\LaravelIntelligentScraper\Scraper\Models\ScrapedDataset;
 
 class UpdateDataset implements ShouldQueue
 {
-    const DATASET_AMOUNT_LIMIT = 100;
+    public const DATASET_AMOUNT_LIMIT = 100;
 
-    public function handle(Scraped $event)
+    public function handle(Scraped $event): void
     {
         $datasets = ScrapedDataset::where('url', $event->scrapeRequest->url)->get();
 
@@ -22,33 +22,33 @@ class UpdateDataset implements ShouldQueue
         }
     }
 
-    private function addDataset(Scraped $event)
+    private function addDataset(Scraped $event): void
     {
         Log::info('Adding new information to dataset', ['request' => $event->scrapeRequest]);
         ScrapedDataset::create(
             [
                 'url'     => $event->scrapeRequest->url,
                 'type'    => $event->scrapeRequest->type,
-                'variant' => $event->variant,
-                'data'    => $event->data,
+                'variant' => $event->scrapedData->getVariant(),
+                'fields'  => $event->scrapedData->getFields(),
             ]
         );
 
         $this->deleteExceededDataset($event);
     }
 
-    private function updateDataset(ScrapedDataset $dataset, Scraped $event)
+    private function updateDataset(ScrapedDataset $dataset, Scraped $event): void
     {
         Log::info('Updating new information to dataset', ['request' => $event->scrapeRequest]);
-        $dataset->data = $event->data;
+        $dataset->fields = $event->scrapedData->getFields();
 
         $dataset->save();
     }
 
-    private function deleteExceededDataset($event): void
+    private function deleteExceededDataset(Scraped $event): void
     {
         $scraperDatasets = ScrapedDataset::withType($event->scrapeRequest->type)
-            ->withVariant($event->variant);
+            ->withVariant($event->scrapedData->getVariant());
 
         $datasetAmountAvailable = $scraperDatasets->count();
 

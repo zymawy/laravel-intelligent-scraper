@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Log;
 use Softonic\LaravelIntelligentScraper\Scraper\Exceptions\MissingXpathValueException;
 use Softonic\LaravelIntelligentScraper\Scraper\Models\Configuration;
+use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
 
 class XpathFinderTest extends TestCase
@@ -25,13 +26,13 @@ class XpathFinderTest extends TestCase
     /**
      * @test
      */
-    public function whenExtractUsingAnInvalidUrlStatusItShouldThrowAnException()
+    public function whenExtractUsingAnInvalidUrlStatusItShouldThrowAnException(): void
     {
         $config = [
             Configuration::create([
-                'name'   => 'title',
-                'type'   => 'post',
-                'xpaths' => ['//*[@id="title"]'],
+                'name'   => ':field:',
+                'type'   => ':type:',
+                'xpaths' => [':xpath:'],
             ]),
         ];
 
@@ -47,27 +48,27 @@ class XpathFinderTest extends TestCase
             ->once()
             ->with(
                 'GET',
-                'url'
+                ':url:'
             )
             ->andThrows($requestException);
 
         $this->expectException(\UnexpectedValueException::class);
-        $this->expectExceptionMessage('Response error from \'url\' with \'404\' http code');
+        $this->expectExceptionMessage('Response error from \':url:\' with \'404\' http code');
 
         $xpathFinder = new XpathFinder($client, $variantGenerator);
-        $xpathFinder->extract('url', $config);
+        $xpathFinder->extract(':url:', collect($config));
     }
 
     /**
      * @test
      */
-    public function whenExtractUsingAnUnavailableUrlItShouldThrowAnException()
+    public function whenExtractUsingAnUnavailableUrlItShouldThrowAnException(): void
     {
         $config = [
             Configuration::create([
-                'name'   => 'title',
-                'type'   => 'post',
-                'xpaths' => ['//*[@id="title"]'],
+                'name'   => ':field:',
+                'type'   => ':type:',
+                'xpaths' => [':xpath:'],
             ]),
         ];
 
@@ -79,29 +80,29 @@ class XpathFinderTest extends TestCase
             ->once()
             ->with(
                 'GET',
-                'url'
+                ':url:'
             )
             ->andThrows($connectException);
 
         $this->expectException(\UnexpectedValueException::class);
-        $this->expectExceptionMessage('Unavailable url \'url\'');
+        $this->expectExceptionMessage('Unavailable url \':url:\'');
 
         $xpathFinder = new XpathFinder($client, $variantGenerator);
-        $xpathFinder->extract('url', $config);
+        $xpathFinder->extract(':url:', collect($config));
     }
 
     /**
      * @test
      */
-    public function whenXpathIsMissingAValueItShouldThrowAnException()
+    public function whenXpathIsMissingAValueItShouldThrowAnException(): void
     {
         $config = [
             Configuration::create([
-                'name'   => 'title',
-                'type'   => 'post',
+                'name'   => ':field:',
+                'type'   => ':type:',
                 'xpaths' => [
-                    '//*[@id="title"]',
-                    '//*[@id="title2"]',
+                    ':xpath-1:',
+                    ':xpath-2:',
                 ],
             ]),
         ];
@@ -114,86 +115,86 @@ class XpathFinderTest extends TestCase
             ->once()
             ->with(
                 'GET',
-                'url'
+                ':url:'
             )
             ->andReturn($internalXpathFinder);
 
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->once()
-            ->with('//*[@id="title"]')
+            ->with(':xpath-1:')
             ->andReturnSelf();
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->once()
-            ->with('//*[@id="title2"]')
+            ->with(':xpath-2:')
             ->andReturnSelf();
         $internalXpathFinder->shouldReceive('count')
             ->andReturn(0);
 
         $this->expectException(MissingXpathValueException::class);
-        $this->expectExceptionMessage('Xpath \'//*[@id="title"]\', \'//*[@id="title2"]\' for field \'title\' not found in \'url\'.');
+        $this->expectExceptionMessage('Xpath \':xpath-1:\', \':xpath-2:\' for field \':field:\' not found in \':url:\'.');
 
         $xpathFinder = new XpathFinder($client, $variantGenerator);
-        $xpathFinder->extract('url', $config);
+        $xpathFinder->extract(':url:', collect($config));
     }
 
     /**
      * @test
      */
-    public function whenXpathsAreFoundItShouldReturnTheFoundValues()
+    public function whenXpathsAreFoundItShouldReturnTheFoundValues(): void
     {
         $config = [
             Configuration::create([
-                'name'   => 'title',
-                'type'   => 'post',
+                'name'   => ':field-1:',
+                'type'   => ':type:',
                 'xpaths' => [
-                    '//*[@id="title"]',
-                    '//*[@id="title2"]',
+                    ':xpath-1:',
+                    ':xpath-2:',
                 ],
             ]),
             Configuration::create([
-                'name'   => 'author',
-                'type'   => 'post',
+                'name'   => ':field-2:',
+                'type'   => ':type:',
                 'xpaths' => [
-                    '//*[@id="author"]',
-                    '//*[@id="author2"]',
+                    ':xpath-3:',
+                    ':xpath-4:',
                 ],
             ]),
         ];
 
-        $internalXpathFinder = \Mockery::mock(\Symfony\Component\DomXpathFinder\XpathFinder::class);
-        $titleXpathFinder    = \Mockery::mock(\Symfony\Component\DomXpathFinder\XpathFinder::class);
-        $authorXpathFinder   = \Mockery::mock(\Symfony\Component\DomXpathFinder\XpathFinder::class);
+        $internalXpathFinder = \Mockery::mock(Crawler::class);
+        $titleXpathFinder    = \Mockery::mock(Crawler::class);
+        $authorXpathFinder   = \Mockery::mock(Crawler::class);
 
         $variantGenerator = \Mockery::mock(VariantGenerator::class);
         $variantGenerator->shouldReceive('addConfig')
             ->twice();
         $variantGenerator->shouldReceive('getId')
-            ->andReturn(10);
+            ->andReturn(':variant:');
 
         $client = \Mockery::mock(Client::class);
         $client->shouldReceive('request')
             ->once()
             ->with(
                 'GET',
-                'url'
+                ':url:'
             )
             ->andReturn($internalXpathFinder);
 
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->once()
-            ->with('//*[@id="title"]')
+            ->with(':xpath-1:')
             ->andReturnSelf();
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->once()
-            ->with('//*[@id="title2"]')
+            ->with(':xpath-2:')
             ->andReturn($titleXpathFinder);
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->once()
-            ->with('//*[@id="author"]')
+            ->with(':xpath-3:')
             ->andReturn($authorXpathFinder);
-        $internalXpathFinder->shouldReceive('filterXPath')
+        $internalXpathFinder->shouldReceive('evaluate')
             ->never()
-            ->with('//*[@id="author2"]');
+            ->with(':xpath-4:');
         $internalXpathFinder->shouldReceive('count')
             ->andReturn(0);
         $titleXpathFinder->shouldReceive('count')
@@ -201,22 +202,24 @@ class XpathFinderTest extends TestCase
         $authorXpathFinder->shouldReceive('count')
             ->andReturn(1);
         $authorXpathFinder->shouldReceive('each')
-            ->andReturn(['My author']);
+            ->andReturn([':value-1:']);
         $titleXpathFinder->shouldReceive('each')
-            ->andReturn(['My Title']);
+            ->andReturn([':value-2:']);
 
         $xpathFinder   = new XpathFinder($client, $variantGenerator);
-        $extractedData = $xpathFinder->extract('url', $config);
+        $extractedData = $xpathFinder->extract(':url:', collect($config));
 
-        $this->assertEquals(
-            [
-                'variant' => 10,
-                'data'    => [
-                    'title'  => ['My Title'],
-                    'author' => ['My author'],
-                ],
-            ],
-            $extractedData
+        self::assertSame(
+            ':variant:',
+            $extractedData->getVariant()
         );
+
+        $title = $extractedData->getField(':field-1:');
+        self::assertSame([':value-2:'], $title->getValue());
+        self::assertTrue($title->isFound());
+
+        $author = $extractedData->getField(':field-2:');
+        self::assertSame([':value-1:'], $author->getValue());
+        self::assertTrue($author->isFound());
     }
 }

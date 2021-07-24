@@ -65,8 +65,8 @@ The default stack already has the http_errors middleware, so you only need to do
 
 There are two different options for the initial setup. The package can be 
 [configured using datasets](#configuration-based-in-dataset) or 
-[configured using Xpath](#configuration-based-in-xpath). Both ways produces the same result but 
-depending on your Xpath knowledge you could prefer one or other. We recommend to use the
+[configured using Xpath](#configuration-based-in-xpath). Both ways produce the same result but
+depending on your Xpath knowledge you could prefer one or other. We recommend using the
 [configured using Xpath](#configuration-based-in-xpath) approach.
 
 ### Configuration based in dataset
@@ -138,11 +138,11 @@ ScrapedDataset::create([
 ]);
 ```
 
-In this dataset we want that the text `My title` to be labeled as title and we also have a list of images that we want 
+In this dataset we want that the text `My title` to be labeled as title, and we also have a list of images that we want
 to be labeled as images. With this we have the flexibility to pick items one by one or in lists.
 
 Sometimes we want to label some text that it is not clean in the HTML because it could include invisible characters like
-`\r\n`. To avoid to deal with that, the dataset allows you to add regular expressions.
+`\r\n`. To avoid dealing with that, the dataset allows you to add regular expressions.
 
 Example with `body` field as regexp:
 
@@ -156,7 +156,7 @@ ScrapedDataset::create([
     'variant' => '8ed10778a83f1266e7ffed90205f7fb61ddcdf78',
     'data' => [
         'title'     => 'My title',
-        'body'      => regexp('/^Body starts here, but it is do long that.*$/si'),
+        'body'      => regexp('/^Body starts here, but it is so long that.*$/si'),
         'images'    => [
             'https://test.c/images/1.jpg',
             'https://test.c/images/2.jpg',
@@ -174,38 +174,45 @@ text is inside some child element of `<html>`. So define regexp carefully.
 
 ### Configuration based in Xpath
 
-After you collected all the Xpath from the HTML, you just need to create the configuration models. They looks like:
+After you collected all the Xpath from the HTML, you just need to create the configuration models. They look like:
 ```php
 <?php
 use Softonic\LaravelIntelligentScraper\Scraper\Models\Configuration;
 
 Configuration::create([
-    'name' => 'title',
-    'type' => 'Item-definition-1',
-    'xpaths' => '//*[@id=title]',
+    'name'     => 'title',
+    'type'     => 'Item-definition-1',
+    'xpaths'   => '//*[@id=title]',
+    'optional' => false,
+    'default'  => [],
 ]);
 
 Configuration::create([
     'name' => 'category',
     'type' => 'Item-definition-1',
     'xpaths' => ['//*[@id=cat]', '//*[@id=long-cat]'],
+    'optional' => true,
+    'default'  => [],
 ]);
 ```
 
 In the definition, you should give a name to the field to be scraped and identify it as a type. The xpaths field could
-contain a string or an array of strings. This is because the HTML can contain different variations depending on the
-specific page, you you can write a list of Xpath that will be checked in order giving the first result found.
+contain a string, or an array of strings. This is because the HTML can contain different variations depending on the
+specific page, you can write a list of Xpath that will be checked in order giving the first result found.
+
+The Configuration allows you to set fields as optional and set a default value when the xpath is not found. These fields
+are not going to trigger the [reconfiguration process](#configure-scraper).
 
 ## Usage
 
-After configure the scraper, you will be able to request an specific scrape using the `scrape` helper
+After configure the scraper, you will be able to request a specific scrape using the `scrape` helper
 ```php
 <?php 
 
 scrape('https://test.c/p/my-objective', 'Item-definition-1');
 ```
 
-There is an optional parameter called `context` that allows you to set a context to the scrapeRequest so you will
+There is an optional parameter called `context` that allows you to set a context to the scrapeRequest, so you will
 be able to access that context in your listener. This is useful if you need some additional data (out of the scraped
 data) to work in your listener.
 
@@ -215,22 +222,23 @@ data) to work in your listener.
 scrape('https://test.c/p/my-objective', 'Item-definition-1', ['id' => 'my-objective']);
 ```
 
-The scrape will produce a `\Softonic\LaravelIntelligentScraper\Scraper\Events\Scraped` event if all worked as expected.
+The scrape will produce a `Scraped` event if all worked as expected.
 So attach a listener to that event to receive the data.
 
 ```php
+/** @var \Softonic\LaravelIntelligentScraper\Scraper\Events\Scraped $event */
 $event->scrapeRequest->url;  // Url scraped
 $event->scrapeRequest->type; // Request type
 $event->scrapeRequest->context; // Context
-$event->data; // Contains all the data in a [ 'fieldName' => 'value' ] format.
-$event->variant; // Contains the page variation sha1 hash.
+$event->scrapedData; // Entity that contains all data scraped and the determined page variant.
 ```
 
 All the output fields are arrays that can contain one or more results.
 
-If the scrape fails a `\Softonic\LaravelIntelligentScraper\Scraper\Events\ScrapeFailed` event is fired with the
+If the scrape fails a `ScrapeFailed` event is fired with the
 scrape request information.
 ```php
+/** @var \Softonic\LaravelIntelligentScraper\Scraper\Events\ScrapeFailed $event */
 $event->scrapeRequest->url;  // Url scraped
 $event->scrapeRequest->type; // Request type
 $event->scrapeRequest->context; // Context
@@ -253,6 +261,7 @@ But the scrapes from all types will go to that listeners. To simplify the listen
 single type, there is a `listeners` configuration available at scraper.php, so you can configure the listeners
 with greater granularity.
 ```php
+return [
     // config/scrapper.php
     'listeners' => [
         'scraped' => [
@@ -262,7 +271,8 @@ with greater granularity.
         'scrape-failed' => [
             'my-type-1' => ListenerFailedForTypeOne::class,
         ],
-    ];
+    ]
+];
 ```
 
 ## Advanced usage
@@ -382,7 +392,7 @@ No scraped data;
 ```
 
 This process could produce two different events:
-* Scraped: All worked as expected and the page was scraped
+* Scraped: All worked as expected, and the page was scraped
 * ScrapeFailed: The scrape couldn't be done after recalculate config, so we need a manual configuration action to fix it.
 
 ## License

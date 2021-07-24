@@ -4,39 +4,24 @@ namespace Softonic\LaravelIntelligentScraper\Scraper\Events;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Softonic\LaravelIntelligentScraper\Scraper\Entities\ScrapedData;
 
 class Scraped
 {
     use Dispatchable;
     use SerializesModels;
 
-    /**
-     * @var ScrapeRequest
-     */
-    public $scrapeRequest;
+    public ScrapeRequest $scrapeRequest;
 
-    /**
-     * @var array
-     */
-    public $data;
-
-    /**
-     * @var string
-     */
-    public $variant;
+    public ScrapedData $scrapedData;
 
     /**
      * Create a new event instance.
-     *
-     * @param ScrapeRequest $scrapeRequest
-     * @param array         $data
-     * @param string        $variant
      */
-    public function __construct(ScrapeRequest $scrapeRequest, array $data, string $variant)
+    public function __construct(ScrapeRequest $scrapeRequest, ScrapedData $scrapedData)
     {
         $this->scrapeRequest = $scrapeRequest;
-        $this->data          = $data;
-        $this->variant       = $variant;
+        $this->scrapedData = $scrapedData;
     }
 
     /**
@@ -45,14 +30,12 @@ class Scraped
      * Only if you are using Horizon
      *
      * @see https://laravel.com/docs/5.8/horizon#tags
-     *
-     * @return array
      */
-    public function tags()
+    public function tags(): array
     {
         return [
             "scraped_type:{$this->scrapeRequest->type}",
-            "scraped_variant:{$this->variant}",
+            "scraped_variant:{$this->scrapedData->getVariant()}",
         ];
     }
 }
