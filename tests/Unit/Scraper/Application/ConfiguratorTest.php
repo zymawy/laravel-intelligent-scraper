@@ -1,6 +1,6 @@
 <?php
 
-namespace Softonic\LaravelIntelligentScraper\Scraper\Application;
+namespace Joskfg\LaravelIntelligentScraper\Scraper\Application;
 
 use DOMElement;
 use Goutte\Client;
@@ -8,13 +8,13 @@ use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Exception\RequestException;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Support\Facades\Log;
+use Joskfg\LaravelIntelligentScraper\Scraper\Events\ConfigurationScraped;
+use Joskfg\LaravelIntelligentScraper\Scraper\Exceptions\ConfigurationException;
+use Joskfg\LaravelIntelligentScraper\Scraper\Models\Configuration as ConfigurationModel;
+use Joskfg\LaravelIntelligentScraper\Scraper\Models\ScrapedDataset;
+use Joskfg\LaravelIntelligentScraper\Scraper\Repositories\Configuration;
 use Mockery;
 use Mockery\LegacyMockInterface;
-use Softonic\LaravelIntelligentScraper\Scraper\Events\ConfigurationScraped;
-use Softonic\LaravelIntelligentScraper\Scraper\Exceptions\ConfigurationException;
-use Softonic\LaravelIntelligentScraper\Scraper\Models\Configuration as ConfigurationModel;
-use Softonic\LaravelIntelligentScraper\Scraper\Models\ScrapedDataset;
-use Softonic\LaravelIntelligentScraper\Scraper\Repositories\Configuration;
 use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
 use UnexpectedValueException;
