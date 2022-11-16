@@ -307,7 +307,7 @@ interesting to use it apart from internally to update the dataset.
 
 `ConfigurationScraped` can be used to do updates or to know internals about the configuration process.
 
-### Queue workers
+## Queue workers
 
 You need to workers, one for the default queue and another for the `configure` queue. The `configure` worker
 should be a single worker to avoid parallel configurations.
